@@ -24,7 +24,7 @@ func main() {
 func main_go() {
 	RegMsgProc()
 
-	go help.GetApp().Listen("tcp", ":8001")
+	go help.GetApp().Listen("main_listen", "tcp", ":8001")
 }
 
 func RegMsgProc() {
