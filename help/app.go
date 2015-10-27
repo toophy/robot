@@ -108,6 +108,10 @@ func (this *AppBase) GetConnByName(name string) *ClientConn {
 
 func (this *AppBase) RegMsgFunc(id int, f MsgFunc) {
 	this.MsgProc[id] = f
+
+	if id > this.MsgProcCount {
+		this.MsgProcCount = id
+	}
 }
 
 func (this *AppBase) Listen(name, net_type, address string, onRet ConnRetFunc) {
@@ -197,7 +201,7 @@ func (this *AppBase) ConnProc(c *ClientConn, onRet ConnRetFunc) {
 			c.Stream.Seek(MaxHeader)
 			msg_code := c.Stream.ReadU2()
 
-			if msg_code >= 0 && msg_code < this.MsgProcCount {
+			if msg_code >= 0 && msg_code <= this.MsgProcCount {
 				this.MsgProc[msg_code](c)
 			}
 
@@ -213,7 +217,7 @@ func (this *AppBase) ConnProc(c *ClientConn, onRet ConnRetFunc) {
 	if err != nil {
 		onRet("close failed", c.Name, c.Id, err.Error())
 	} else {
-		onRet("close ok", c.Name, c.Id, err.Error())
+		onRet("close ok", c.Name, c.Id, "")
 	}
 
 	GetApp().DelConn(c.Id)
