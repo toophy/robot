@@ -1,0 +1,1 @@
+go tool pprof ./bin/robot.exe ./log/robot_prof.log
