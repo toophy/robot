@@ -39,6 +39,21 @@ func OnListenRet(typ string, name string, id int, info string) bool {
 			println("Conn[", id, "] : Connect ok")
 		}
 
+		c := help.GetApp().GetConnById(id)
+
+		msg_len := 0
+		var msg help.Ty_net_msg
+		var stream help.Ty_msg_stream
+		msg.InitNetMsg()
+		stream.InitMsgStream(&msg)
+		stream.WriteU2(msg_len)
+
+		var c2g_login int = 1
+		stream.WriteU2(c2g_login)
+		acc := "古老茅"
+		stream.WriteString(&acc)
+		msg.Send(c.Conn)
+
 	case "read failed":
 		if len(name) > 0 {
 			println(name + " : Connect read[" + info)
