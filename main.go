@@ -4,6 +4,7 @@ package main
 import (
 	"github.com/toophy/robot/config"
 	"github.com/toophy/robot/help"
+	"github.com/toophy/robot/logic"
 )
 
 // Gogame framework version.
@@ -15,7 +16,7 @@ func main() {
 	help.GetApp().Start(config.LogDir, config.ProfFile)
 
 	// 主协程
-	go main_go()
+	go logic.Main_go()
 
 	// 等待结束
 	help.GetApp().WaitExit()

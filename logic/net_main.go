@@ -1,13 +1,13 @@
-package main
+package logic
 
 import (
 	"github.com/toophy/robot/help"
 )
 
-func main_go() {
+func Main_go() {
 	RegMsgProc()
 
-	go help.GetApp().Listen("main_listen", "tcp", ":8001", OnListenRet)
+	go help.GetApp().Connect("to_gate", "tcp", "127.0.0.1:8001", OnListenRet)
 }
 
 func OnListenRet(typ string, name string, id int, info string) bool {
