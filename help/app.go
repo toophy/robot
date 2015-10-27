@@ -1,7 +1,6 @@
 package help
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -12,7 +11,7 @@ import (
 
 // 消息函数类型
 type MsgFunc func(*ClientConn)
-type ConnRetFunc func(string, int, error)
+type ConnRetFunc func(string, string, int, string) bool
 
 type AppBase struct {
 	baseGoNumStart int
@@ -97,9 +96,9 @@ func (this *AppBase) RegMsgFunc(id int, f MsgFunc) {
 	this.MsgProc[id] = f
 }
 
-func (this *AppBase) Listen(name, net_type, address string, onListen ConnRetFunc, onAccpet ConnRetFunc, onConnect ConnRetFunc) {
+func (this *AppBase) Listen(name, net_type, address string, onRet ConnRetFunc) {
 	if len(this.Address) > 0 || len(address) == 0 || len(net_type) == 0 {
-		onListen(name, 0, errors.New("listen failed"))
+		onRet("listen failed", name, 0, "listen failed")
 		return
 	}
 
@@ -109,38 +108,42 @@ func (this *AppBase) Listen(name, net_type, address string, onListen ConnRetFunc
 	serverAddr, err := net.ResolveTCPAddr(net_type, this.Address)
 
 	if err != nil {
-		onListen(name, 0, errors.New("Listen Start : port failed: '"+this.Address+"' "+err.Error()))
+		onRet("listen failed", name, 0, "Listen Start : port failed: '"+this.Address+"' "+err.Error())
 		return
 	}
 
 	listener, err := net.ListenTCP(net_type, serverAddr)
 	if err != nil {
-		onListen(name, 0, errors.New("TcpSerer ListenTCP: "+err.Error()))
+		onRet("listen failed", name, 0, "TcpSerer ListenTCP: "+err.Error())
 		return
 	}
 
 	ln := new(ListenConn)
 	ln.InitListen(name, net_type, address, listener)
+	this.Listener[name] = ln
+
+	onRet("listen ok", name, 0, "")
 
 	for {
-		this.Listener[name] = ln
 		conn, err := listener.AcceptTCP()
 		if err != nil {
-			onAccpet(name, 0, errors.New("TcpSerer Accept: "+err.Error()))
+			if !onRet("accept failed", name, 0, "TcpSerer Accept: "+err.Error()) {
+				break
+			}
 			continue
 		}
 		c := new(ClientConn)
 		this.ConnLast++
 		c.InitClient(this.ConnLast, conn)
-		onConnect("", c.Id, nil)
+		onRet("accept ok", "", c.Id, "")
 
-		go this.ConnProc(c)
+		go this.ConnProc(c, onRet)
 	}
 }
 
-func (this *AppBase) Connect(name, net_type, address string, onConnect ConnRetFunc) {
+func (this *AppBase) Connect(name, net_type, address string, onRet ConnRetFunc) {
 	if len(address) == 0 || len(net_type) == 0 || len(name) == 0 {
-		onConnect(name, 0, errors.New("listen failed"))
+		onRet("connect failed", name, 0, "listen failed")
 		return
 	}
 
@@ -148,13 +151,13 @@ func (this *AppBase) Connect(name, net_type, address string, onConnect ConnRetFu
 	remoteAddr, err := net.ResolveTCPAddr(net_type, address)
 
 	if err != nil {
-		onConnect(name, 0, errors.New("Connect Start : port failed: '"+this.Address+"' "+err.Error()))
+		onRet("connect failed", name, 0, "Connect Start : port failed: '"+this.Address+"' "+err.Error())
 		return
 	}
 
 	conn, err := net.DialTCP(net_type, nil, remoteAddr)
 	if err != nil {
-		onConnect(name, 0, errors.New("Connect dialtcp failed: '"+this.Address+"' "+err.Error()))
+		onRet("connect failed", name, 0, "Connect dialtcp failed: '"+this.Address+"' "+err.Error())
 	} else {
 		c := new(ClientConn)
 		this.ConnLast++
@@ -162,12 +165,12 @@ func (this *AppBase) Connect(name, net_type, address string, onConnect ConnRetFu
 		c.Name = name
 		this.RemoteSvr[name] = c
 
-		onConnect(name, 0, nil)
-		go this.ConnProc(c)
+		onRet("connect ok", name, 0, "")
+		go this.ConnProc(c, onRet)
 	}
 }
 
-func (this *AppBase) ConnProc(c *ClientConn) {
+func (this *AppBase) ConnProc(c *ClientConn, onRet ConnRetFunc) {
 
 	for {
 		c.Stream.Seek(0)
@@ -183,15 +186,18 @@ func (this *AppBase) ConnProc(c *ClientConn) {
 			}
 
 		} else {
-			fmt.Println(err.Error())
+			onRet("read failed", c.Name, c.Id, err.Error())
 			break
 		}
 	}
 
+	onRet("pre close", c.Name, c.Id, "")
+
 	err := c.Conn.Close()
-	fmt.Println("Closed connection:", c.Address)
 	if err != nil {
-		fmt.Println("ERROR: " + "Close:" + " " + err.Error())
+		onRet("close failed", c.Name, c.Id, err.Error())
+	} else {
+		onRet("close ok", c.Name, c.Id, err.Error())
 	}
 
 	GetApp().DelConn(c.Id)
